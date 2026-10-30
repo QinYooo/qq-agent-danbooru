@@ -1,0 +1,232 @@
+{
+  "id": "danbooru-archive",
+  "name": "Danbooru 图片筛选归档",
+  "version": "1.3.4",
+  "apiVersion": 1,
+  "category": "media",
+  "description": "自动筛选群聊图片，本地识别 Danbooru 标签，按角色与 NSFW/SFW 归档。人物明确但角色未识别的合格图片也可收录；梗图、低质量和无关图片仅记录结果。",
+  "enabledByDefault": false,
+  "permissions": [
+    "qq_sticker"
+  ],
+  "capabilities": [],
+  "requires": [],
+  "settings": {
+    "scope": "all_groups",
+    "pythonPath": "",
+    "modelDir": "",
+    "imageTypeModelDir": "",
+    "filterImageType": true,
+    "minIllustrationScore": 0.65,
+    "allow3d": false,
+    "rejectScreenshots": true,
+    "screenshotThreshold": 0.35,
+    "explicitTagThreshold": 0.6,
+    "outputRoot": "",
+    "minSide": 768,
+    "minPixels": 786432,
+    "characterThreshold": 0.85,
+    "saveUnknownCharacters": true,
+    "personThreshold": 0.7,
+    "generalThreshold": 0.35,
+    "filterThreshold": 0.6,
+    "nsfwThreshold": 0.6,
+    "ratingConfidence": 0.6,
+    "maxBytes": 26214400,
+    "maxPixels": 40000000,
+    "maxAspect": 2.5,
+    "nearDuplicateDistance": 4,
+    "minEntropy": 3,
+    "minSharpness": 12,
+    "maxQueue": 300,
+    "includeForwards": true
+  },
+  "configSchema": {
+    "filterImageType": {
+      "type": "boolean",
+      "label": "筛除截图和非插画内容",
+      "description": "默认开启。独立画面类型模型检查整张图片，筛除聊天/游戏界面、动画截图、漫画及不确定类型；即使识别出人物或角色也必须通过。",
+      "default": true
+    },
+    "minIllustrationScore": {
+      "type": "number",
+      "label": "完整插画最低分数",
+      "description": "默认0.65。插画必须是独立分类模型的最高分类且达到此分数；调高更严格。这个分数判断画面类型，不保证训练质量。",
+      "default": 0.65
+    },
+    "allow3d": {
+      "type": "boolean",
+      "label": "同时收录3D渲染图",
+      "description": "默认关闭。开启后，类型明确的3D人物渲染也可以继续接受其他筛选。",
+      "default": false
+    },
+    "rejectScreenshots": {
+      "type": "boolean",
+      "label": "使用截图标签补充筛除",
+      "description": "默认开启。PixAI的screenshot、anime_screenshot、game_screenshot、thumbnail_collage标签达到阈值时拒收，防止图片中有角色就被放行。",
+      "default": true
+    },
+    "screenshotThreshold": {
+      "type": "number",
+      "label": "截图标签筛除阈值",
+      "description": "默认0.35。达到此分数的截图类标签会参与拒收，识别结果统一记录到数据库。",
+      "default": 0.35
+    },
+    "explicitTagThreshold": {
+      "type": "number",
+      "label": "NSFW明确内容标签阈值",
+      "description": "默认0.6。只有精确匹配的明确裸露/性内容标签达到此值才进入NSFW；胸部大小、丝袜、裸肩、姿势和sensitive分级不单独触发。截图仍先被筛除。",
+      "default": 0.6
+    },
+    "imageTypeModelDir": {
+      "type": "string",
+      "label": "画面类型模型目录",
+      "description": "已配置DeepGHS本地分类模型，检查整张图属于插画、截图、漫画、3D或非绘画。修改后关闭再开启插件。",
+      "default": ""
+    },
+    "scope": {
+      "type": "enum",
+      "label": "收图范围",
+      "description": "所有群模式通过本机 OneBot 只读通道收图，不改变聊天白名单；仍遵守群黑名单、全局及群成员屏蔽设置。",
+      "options": [
+        {
+          "value": "all_groups",
+          "label": "所有群聊（已选择）"
+        },
+        {
+          "value": "host_allowed",
+          "label": "仅聊天白名单内的群"
+        }
+      ],
+      "default": "all_groups"
+    },
+    "dashboard": {
+      "type": "action",
+      "label": "归档状态",
+      "button": "查看筛选结果",
+      "panel": "panel/viewer.html",
+      "description": "查看本地模型状态、处理数量、最近结果和错误。",
+      "icon": "🗂️"
+    },
+    "outputRoot": {
+      "type": "string",
+      "label": "保存目录",
+      "description": "图片分入此目录下的 SFW 或 NSFW，再按角色标签归档。改路径后关闭再开启插件。",
+      "default": ""
+    },
+    "minSide": {
+      "type": "number",
+      "label": "最短边至少多少像素",
+      "description": "默认 768；低于此尺寸的图片不保存。调低会增加收录量。",
+      "default": 768
+    },
+    "minPixels": {
+      "type": "number",
+      "label": "最少总像素",
+      "description": "默认 786432（768×1024）；宽乘高低于此值不保存。",
+      "default": 786432
+    },
+    "characterThreshold": {
+      "type": "number",
+      "label": "角色识别置信度",
+      "description": "0～1，默认0.85。只按达到阈值且分数最高的一个角色归档；没有角色达标时，可按人物特征收录到未知角色目录。",
+      "default": 0.85
+    },
+    "saveUnknownCharacters": {
+      "type": "boolean",
+      "label": "收录未识别具体角色的人物图",
+      "description": "默认开启。人物特征明确且通过尺寸、质量、梗图和分级筛选时，保存到 SFW 或 NSFW 下的 _unknown_character 目录，不虚构角色标签。",
+      "default": true
+    },
+    "personThreshold": {
+      "type": "number",
+      "label": "未识别角色时的人物置信度",
+      "description": "0～1，默认 0.7。1girl、1boy、多人物等人物标签至少一项达到此值，且 no_humans 未达到筛除阈值，才可收录未识别角色的人物图。",
+      "default": 0.7
+    },
+    "generalThreshold": {
+      "type": "number",
+      "label": "普通标签保存阈值",
+      "description": "0～1，默认 0.35。达到此值的普通标签统一记录到图库数据库。",
+      "default": 0.35
+    },
+    "filterThreshold": {
+      "type": "number",
+      "label": "梗图与文本类筛除阈值",
+      "description": "0～1，默认 0.6。meme、text_focus、comic、speech_bubble、sketch 等标签达到此值则不保存。",
+      "default": 0.6
+    },
+    "nsfwThreshold": {
+      "type": "number",
+      "label": "成人分级冲突复核阈值",
+      "description": "默认0.6。questionable/explicit达到此值但没有明确内容标签时，按不确定拒收；sensitive不单独决定NSFW。",
+      "default": 0.6
+    },
+    "ratingConfidence": {
+      "type": "number",
+      "label": "分级最低置信度",
+      "description": "默认0.6。没有明确裸露/性内容标签时，最高分级分数不足此值视为不确定，不保存。",
+      "default": 0.6
+    },
+    "nearDuplicateDistance": {
+      "type": "number",
+      "label": "近似重复距离",
+      "description": "默认 4。联合比较全库已有图片的画面指纹和缩略图，跳过高度相似的新图；缩放和重新压缩的同图也会检查，不删除已有图片。0 关闭近似去重，仍按文件 SHA256 精确去重。",
+      "default": 4
+    },
+    "minEntropy": {
+      "type": "number",
+      "label": "低信息量阈值",
+      "description": "默认 3。需同时低于清晰度阈值才按低质量筛除，避免单凭背景虚化误删。",
+      "default": 3
+    },
+    "minSharpness": {
+      "type": "number",
+      "label": "低清晰度阈值",
+      "description": "默认 12。仅在信息量也偏低时联合筛除。",
+      "default": 12
+    },
+    "maxAspect": {
+      "type": "number",
+      "label": "最大长短边比例",
+      "description": "默认 2.5。更狭长的图不保存，减少长截图和拼接图。",
+      "default": 2.5
+    },
+    "includeForwards": {
+      "type": "boolean",
+      "label": "处理合并转发内图片",
+      "description": "默认开启。支持普通及两层嵌套合并转发，按消息编号与转发资源编号回退读取；每条原始消息最多处理100张图。取图后使用相同筛选、去重及数据库保存规则。",
+      "default": true
+    },
+    "maxQueue": {
+      "type": "number",
+      "label": "最大等待数量",
+      "description": "默认 300；排队超限只记录跳过，不保存。内存中的图片数据另有 64MB 上限。",
+      "default": 300
+    },
+    "maxBytes": {
+      "type": "number",
+      "label": "单张最大字节数",
+      "description": "默认 26214400（25MB），超过则不保存。",
+      "default": 26214400
+    },
+    "maxPixels": {
+      "type": "number",
+      "label": "单张最大解码像素",
+      "description": "默认 40000000，用于限制超大图片的内存占用。",
+      "default": 40000000
+    },
+    "pythonPath": {
+      "type": "string",
+      "label": "本地 Python 路径",
+      "description": "PixAI 专用 GPU 运行环境，无需修改。修改后关闭再开启插件。",
+      "default": ""
+    },
+    "modelDir": {
+      "type": "string",
+      "label": "本地标签模型目录",
+      "description": "默认 PixAI Tagger v1.0，包含已校验的权重、配置与运行代码。也兼容原 WD 目录（model.onnx 与 selected_tags.csv）。修改后关闭再开启插件。",
+      "default": ""
+    }
+  }
+}

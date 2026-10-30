@@ -1,0 +1,12 @@
+[
+  {
+    "name": "character_official.json",
+    "url": "https://raw.githubusercontent.com/Jannchie/danbooru-tag-index/f7bb19c2d52ab0154d848344a91250e52da5e944/data/translations/character_official.json",
+    "sha256": "e0676afa8d077791854aad1fd753487ef8537ea242ee49f73d2529a6b1723536"
+  },
+  {
+    "name": "character_manual.json",
+    "url": "https://raw.githubusercontent.com/Jannchie/danbooru-tag-index/f7bb19c2d52ab0154d848344a91250e52da5e944/data/translations/character_manual.json",
+    "sha256": "a30f9e002f4f88d8df511b2849c87376229b2a4f07ff9c1bc4e8291235383a85"
+  }
+]

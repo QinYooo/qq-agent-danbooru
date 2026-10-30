@@ -1,0 +1,65 @@
+[
+  {
+    "repository": "pixai-labs/pixai-tagger-v1.0",
+    "revision": "9fe10addf9326e292da8a85a98ea74cd91b41771",
+    "license": "Apache-2.0",
+    "files": [
+      {
+        "name": "model.safetensors",
+        "url": "https://huggingface.co/pixai-labs/pixai-tagger-v1.0/resolve/9fe10addf9326e292da8a85a98ea74cd91b41771/model.safetensors",
+        "sha256": "f29e475205cbcbc25b52a075840c7809d6215be15f45375113ba09c49bf90292",
+        "bytes": 1945425796
+      },
+      {
+        "name": "config.json",
+        "url": "https://huggingface.co/pixai-labs/pixai-tagger-v1.0/resolve/9fe10addf9326e292da8a85a98ea74cd91b41771/config.json",
+        "sha256": "f8a19b38661c37dc5fd519f2137be70f6f897972021b4ebc17b7d35a0e27b9dd",
+        "bytes": 693918
+      },
+      {
+        "name": "preprocessor_config.json",
+        "url": "https://huggingface.co/pixai-labs/pixai-tagger-v1.0/resolve/9fe10addf9326e292da8a85a98ea74cd91b41771/preprocessor_config.json",
+        "sha256": "20451575e627950993de7b00641d5b263eceb3e7436e4ad518fea2411b60e49d",
+        "bytes": 600
+      },
+      {
+        "name": "tagger_pipeline.py",
+        "url": "https://huggingface.co/pixai-labs/pixai-tagger-v1.0/resolve/9fe10addf9326e292da8a85a98ea74cd91b41771/tagger_pipeline.py",
+        "sha256": "3431279fdfff234f62664999fc1fe6bb20f1e8756f7435d0e165ebd4456f7fcd",
+        "bytes": 43696
+      },
+      {
+        "name": "README.md",
+        "url": "https://huggingface.co/pixai-labs/pixai-tagger-v1.0/resolve/9fe10addf9326e292da8a85a98ea74cd91b41771/README.md",
+        "sha256": "67b6e11967974b2646275da42f3a1149ef77ea2eed5c6d93cd6a258d495c5a38",
+        "bytes": 15518
+      }
+    ]
+  },
+  {
+    "repository": "deepghs/anime_classification",
+    "revision": "5ee62e06f5f4cd68a1c2f3bc5dc9805e827d37df",
+    "license": "MIT",
+    "variant": "mobilenetv3_v1.3_dist",
+    "files": [
+      {
+        "name": "model.onnx",
+        "bytes": 16837808,
+        "sha256": "fa233c04467cba4c68ecabd0065ad169c6fe867dc19799627cf5bd566a97d115",
+        "url": "https://huggingface.co/deepghs/anime_classification/resolve/5ee62e06f5f4cd68a1c2f3bc5dc9805e827d37df/mobilenetv3_v1.3_dist/model.onnx"
+      },
+      {
+        "name": "meta.json",
+        "bytes": 183,
+        "sha256": "83a95d8f99ac4e51b10a0a74e7d71a48d6ab99c8dab1f6a7ed20bb35687b6c96",
+        "url": "https://huggingface.co/deepghs/anime_classification/resolve/5ee62e06f5f4cd68a1c2f3bc5dc9805e827d37df/mobilenetv3_v1.3_dist/meta.json"
+      },
+      {
+        "name": "metrics.json",
+        "bytes": 153,
+        "sha256": "427dc76b95ab6cd09b9d3564572877ed629bb9cad297e595722e4fcd2e2a9411",
+        "url": "https://huggingface.co/deepghs/anime_classification/resolve/5ee62e06f5f4cd68a1c2f3bc5dc9805e827d37df/mobilenetv3_v1.3_dist/metrics.json"
+      }
+    ]
+  }
+]

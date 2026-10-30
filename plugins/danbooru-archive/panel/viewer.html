@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Danbooru 图片筛选归档</title><link rel="stylesheet" href="./viewer.css"><script src="./viewer.js" defer></script></head>
+<body><main>
+  <header><div><span class="eyebrow">本地图片整理</span><h1>Danbooru 图片筛选归档</h1></div><button id="refresh" type="button">刷新</button></header>
+  <section class="status"><span id="dot" class="dot"></span><div><strong id="status">读取状态中…</strong><p id="detail"></p></div></section>
+  <div id="counts" class="counts"></div>
+  <section class="info"><p><b>保存位置</b> <span id="folder">正在读取</span></p><p><b>收图范围</b> <span id="scope"></span></p><p>合格图片按 <code>SFW / 角色</code> 或 <code>NSFW / 角色</code> 保存，附标签与元数据。明确的内容标签与模型分级共同决定 NSFW；普通服饰标签不作为依据。开启未识别角色收录后，人物明确且通过质量筛选的图片保存到对应分级的 <code>_unknown_character</code> 目录。梗图、低质量、无关或内容分级不确定的图片仅记录结果。</p><p>新图片会与全库已有图片比较。高度相似、仅缩放或重新压缩的图片会被跳过，不删除已经保存的图片。</p><p class="muted">自动筛选仍可能误判，训练前建议抽查。归档过程使用本地模型，不在群里发送回复。</p></section>
+  <section id="errorBox" class="error" hidden><b>最近错误</b><p id="error"></p></section>
+  <section><h2>最近结果</h2><p id="empty" class="muted">还没有处理记录。收到群聊图片后会在这里显示。</p><div id="recent"></div></section>
+  <footer id="updated"></footer>
+</main></body></html>

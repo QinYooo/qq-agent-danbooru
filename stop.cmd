@@ -1,0 +1,2 @@
+@echo off
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0tools\run.ps1" -ProjectDir "%~dp0" -StopServer

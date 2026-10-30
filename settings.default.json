@@ -1,0 +1,23 @@
+{
+  "filterImageType": true,
+  "minIllustrationScore": 0.65,
+  "allow3d": false,
+  "rejectScreenshots": true,
+  "screenshotThreshold": 0.35,
+  "explicitTagThreshold": 0.6,
+  "minSide": 768,
+  "minPixels": 786432,
+  "characterThreshold": 0.85,
+  "saveUnknownCharacters": true,
+  "personThreshold": 0.7,
+  "generalThreshold": 0.35,
+  "filterThreshold": 0.6,
+  "nsfwThreshold": 0.6,
+  "ratingConfidence": 0.6,
+  "maxBytes": 26214400,
+  "maxPixels": 40000000,
+  "maxAspect": 2.5,
+  "nearDuplicateDistance": 4,
+  "minEntropy": 3,
+  "minSharpness": 12
+}

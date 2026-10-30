@@ -1,0 +1,5 @@
+{
+  "private": true,
+  "type": "module",
+  "scripts": {"test": "node --test --test-timeout=10000 tests/*.test.mjs"}
+}

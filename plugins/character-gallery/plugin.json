@@ -1,0 +1,113 @@
+{
+  "id": "character-gallery",
+  "name": "角色图库点图",
+  "version": "1.4.4",
+  "apiVersion": 1,
+  "category": "media",
+  "description": "群内按角色或画面描述点图，支持且/或/排除组合；发送“查看数据库”可看当前收录统计及中文角色、画面标签，支持翻页搜索。",
+  "enabledByDefault": false,
+  "permissions": [],
+  "capabilities": [
+    "dev.route"
+  ],
+  "requires": [],
+  "settings": {
+    "outputRoot": "",
+    "requireMention": true,
+    "defaultCount": 3,
+    "maxCount": 9,
+    "cooldownSeconds": 8,
+    "batchGapSeconds": 0.5,
+    "singleImageMessages": true,
+    "lightweightDelivery": true,
+    "receiptPixelRetry": true,
+    "recentImageHours": 24,
+    "pythonPath": "",
+    "aliases": "莉音=rio_(blue_archive)\n莉央=rio_(blue_archive)"
+  },
+  "configSchema": {
+    "outputRoot": {
+      "type": "string",
+      "label": "图库目录",
+      "description": "读取此目录下 SFW/角色标签 和 NSFW/角色标签 内已保存的图片。不会移动或修改图库、数据库。",
+      "default": ""
+    },
+    "requireMention": {
+      "type": "boolean",
+      "label": "指令需要 @机器人",
+      "description": "默认开启，只响应实际 @到机器人的群指令；保留 QQ Agent 的聊天白名单和屏蔽规则。",
+      "default": true
+    },
+    "defaultCount": {
+      "type": "number",
+      "label": "“几张”的数量",
+      "description": "默认3张。同次不重复；不足时发送现有图片。支持“来2张莉音”及“随机来几张图”“随机来5张图”。",
+      "default": 3
+    },
+    "maxCount": {
+      "type": "number",
+      "label": "一次最多几张",
+      "description": "默认9，允许1～9。指令指定更多时自动限制数量。SFW和NSFW合并抽取。",
+      "default": 9
+    },
+    "cooldownSeconds": {
+      "type": "number",
+      "label": "同一群员点图间隔（秒）",
+      "description": "默认8秒，连续重复指令会跳过；统一发送队列仍会执行 QQ Agent 原有限频。",
+      "default": 8
+    },
+    "recentImageHours": {
+      "type": "number",
+      "label": "本群重复图片降权时长（小时）",
+      "description": "默认24小时，可设0～168，0为关闭。随机选图优先取本群近期没发过的图片，候选不足时再取发过的；角色、标签和全库随机共用本群记录，群间独立，重载或重启后仍保留。仅记录确认发送成功的原图编号。",
+      "default": 24
+    },
+    "batchGapSeconds": {
+      "type": "number",
+      "label": "图片分批间隔（秒）",
+      "description": "默认0.5秒，允许0.5～30秒。前一批确认后的额外等待；QQ发送队列自身延时和上传耗时另计。",
+      "default": 0.5
+    },
+    "singleImageMessages": {
+      "type": "boolean",
+      "label": "逐张发送，避免一张影响整批",
+      "description": "默认开启。每条消息1张，间隔由配置控制。无回执补发策略仍失败的图在本群暂避24小时；上传连接故障只补试一次。连续两次失败或达到耗时预算时停止余图；各群分别排队，最多同时处理两个群。",
+      "default": true
+    },
+    "lightweightDelivery": {
+      "type": "boolean",
+      "label": "大图发送轻量副本",
+      "description": "默认开启。超过2MiB时先在本地生成最长边不超过2560、大小不超过2MiB的JPEG发送副本，归档原图与训练数据不变；可关闭以发送原始文件。",
+      "default": true
+    },
+    "receiptPixelRetry": {
+      "type": "boolean",
+      "label": "无回执时调整25像素补发一次",
+      "description": "默认开启。单张遇到QQ缺少回执（sequence=null）时，对本次发送图的左上角5×5像素RGB各减10（下限0，透明度不变），以无损PNG副本额外发送一次；不修改归档原图。补发仍失败则跳过，不循环。",
+      "default": true
+    },
+    "aliases": {
+      "type": "string",
+      "label": "补充中文角色别名",
+      "multiline": true,
+      "description": "中文名=完整tag，如 爱弥斯=aemeath_(wuthering_waves)。支持换行、空格或分号分隔多组。作为Agent优先候选，仍以数据库实际标签判断；重名时澄清。",
+      "default": "莉音=rio_(blue_archive)\n莉央=rio_(blue_archive)"
+    },
+    "pythonPath": {
+      "type": "string",
+      "label": "数据库读取环境",
+      "description": "沿用本地PixAI的Python，只读查询SQLite并用本地Pillow准备大图传输副本，不加载识图模型。",
+      "default": ""
+    }
+  },
+  "prompt": {
+    "sections": [
+      {
+        "id": "gallery-commands",
+        "title": "角色图库点图",
+        "priority": 60,
+        "content": "群内“来几张莉音”“来几张穿着丝袜的莉音”“来几张白发黑丝的图”等点图指令由插件内部的图库检索Agent查询本地SQLite真实标签并发送，支持AND/OR/NOT条件；不用图片搜索或绘图工具。全库随机直接抽图。“查看数据库”及其角色/标签分页、搜索指令由插件直接读取实时统计并回复中文标签，不需要模型。上述指令被插件接走后，普通聊天模型不再重复回复。聊天记录[图库点图：描述，数量张]代表发送成功；不要重复发图或虚构结果。"
+      }
+    ]
+  }
+}

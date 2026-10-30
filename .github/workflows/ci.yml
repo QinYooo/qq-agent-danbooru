@@ -1,0 +1,33 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install -r requirements-web.txt
+      - run: python -B -m unittest discover -s tests -p "test_*.py" -v
+      - name: Check browser JavaScript
+        run: node --check web/static/app.js
+      - name: Test QQ modules when present
+        shell: bash
+        run: |
+          if [ -d plugins ]; then
+            node --test --test-timeout=10000 tests/*.test.mjs
+          fi
