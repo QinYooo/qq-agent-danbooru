@@ -124,7 +124,7 @@ class LibraryIndexTests(unittest.TestCase):
         arc = self.archive()
         manual = self.root / 'SFW' / 'manual.png'
         manual.write_bytes(self.bytes_a)
-        arc.last_scan = 0
+        arc.last_scan = float('-inf')
         result = arc.process(self.request(self.jpeg_a))
         self.assertEqual(result['reason'], 'near_duplicate')
         self.assertEqual(manual.read_bytes(), self.bytes_a)
