@@ -31,3 +31,26 @@ jobs:
           if [ -d plugins ]; then
             node --test --test-timeout=10000 tests/*.test.mjs
           fi
+      - name: Install into a fresh Windows environment
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          $parameters = @{
+            RuntimeDir = Join-Path $env:RUNNER_TEMP 'danbooru-runtime'
+            LibraryPath = Join-Path $env:RUNNER_TEMP 'danbooru-library'
+            BrowseOnly = $true
+            SkipDownloads = $true
+            NoLaunch = $true
+            NoShortcut = $true
+          }
+          if (Test-Path plugins) {
+            $agent = Join-Path $env:RUNNER_TEMP 'QQ Agent'
+            New-Item -ItemType Directory -Force -Path "$agent/resources/app/plugins","$agent/resources/app/src" | Out-Null
+            Set-Content "$agent/resources/app/src/plugin-loader.js" '// isolated installer fixture'
+            $parameters.QQAgentDir = $agent
+          }
+          .\install.ps1 @parameters
+          if ($LASTEXITCODE -ne 0) { throw 'Fresh installation failed.' }
+          $config = Get-Content config.json -Raw | ConvertFrom-Json
+          & $config.python -B -c "import sys; sys.path.insert(0, 'web'); from runtime_config import load_config; from store import Store; assert Store(load_config()).stats()['total'] == 0; print('Fresh library ready')"
+          if ($LASTEXITCODE -ne 0) { throw 'Installed environment startup failed.' }
