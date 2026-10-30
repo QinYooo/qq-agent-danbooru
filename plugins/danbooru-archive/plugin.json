@@ -1,7 +1,7 @@
 {
   "id": "danbooru-archive",
   "name": "Danbooru 图片筛选归档",
-  "version": "1.3.4",
+  "version": "1.3.5",
   "apiVersion": 1,
   "category": "media",
   "description": "自动筛选群聊图片，本地识别 Danbooru 标签，按角色与 NSFW/SFW 归档。人物明确但角色未识别的合格图片也可收录；梗图、低质量和无关图片仅记录结果。",

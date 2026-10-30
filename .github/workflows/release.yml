@@ -7,7 +7,7 @@ on:
       tag:
         description: Existing version tag
         required: true
-        default: v1.0.0
+        default: v1.1.0
 permissions:
   contents: write
 jobs:
@@ -29,6 +29,7 @@ jobs:
         shell: bash
         run: |
           node --check web/static/app.js
+          node --test tests/interaction.test.cjs
           if [ -d plugins ]; then node --test --test-timeout=10000 tests/*.test.mjs; fi
       - name: Build source distribution
         env:

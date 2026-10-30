@@ -8,6 +8,19 @@ QQ Agent 的本地收图、筛选归档和图库点图插件，附带可选的�
 
 不使用 QQ 的独立版本见 [danbooru-local-manager](https://github.com/QinYooo/danbooru-local-manager)。
 
+## 1.1 更新
+
+- 放大预览新增左右按钮、键盘切图和底部可横向滚动的缩略图队列，支持沿当前筛选与排序跨页切换。
+- 收录时间、文件大小、分辨率均支持正反两个方向排序。
+- 支持拖入图片与文件夹，递归读取子文件夹并保留相对路径。
+- 新增明确的多选入口、全选本页与批量移入回收站，跨页选择按批提交，失败项保留选择。
+- 支持输入页码跳转，批量删除后自动回到有效页码。
+- QQ 自动收图跳过低于 300 KiB（307,200 字节）的图片，覆盖合并消息；手动导入保持原有筛选规则。
+
+安装器不会自动清理已有图库。图片、数据库、本机配置和清理记录不包含在发布包中。
+
+升级：下载新版 ZIP 后重新运行安装器，`-LibraryPath` 指向原图库即可复用数据；模型缓存可继续使用。旧网页服务正在运行时，先停止旧服务再启动新版。
+
 ## 安装
 
 需要已安装的 QQ Agent，以及可用的 SnowLuma。当前接口在 QQ Agent `0.4.8.5` / SnowLuma `1.14.22` 上开发；其他宿主版本可能需要适配。
@@ -15,7 +28,7 @@ QQ Agent 的本地收图、筛选归档和图库点图插件，附带可选的�
 Windows PowerShell 一行安装：
 
 ```powershell
-irm https://raw.githubusercontent.com/QinYooo/qq-agent-danbooru/v1.0.0/bootstrap.ps1 | iex
+irm https://raw.githubusercontent.com/QinYooo/qq-agent-danbooru/v1.1.0/bootstrap.ps1 | iex
 ```
 
 或下载 [Release ZIP](https://github.com/QinYooo/qq-agent-danbooru/releases)，解压后双击 `install.cmd`。
@@ -37,6 +50,8 @@ irm https://raw.githubusercontent.com/QinYooo/qq-agent-danbooru/v1.0.0/bootstrap
 ## 收图与归档
 
 开启归档插件后，自动处理机器人所在群的新图片。默认覆盖合并消息和两层嵌套转发；所有群模式保留群黑名单及成员屏蔽规则，不扩大宿主的发言白名单。
+
+QQ 自动收图要求原始图片至少 300 KiB（307,200 字节），低于此大小会在识别前跳过。手动导入不受这一大小下限限制。
 
 默认短边至少 768，总像素至少 786432。完整插画判断、截图和梗图过滤、人物判断、角色置信度、分级及全库去重都通过后才收录。角色阈值为 0.85，每张图片只按最高分角色保存一份；未识别角色的合格人物插画进入 `_unknown_character`。普通标签也存入数据库。
 

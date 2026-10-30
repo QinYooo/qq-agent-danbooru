@@ -232,8 +232,9 @@ class Store:
             and all(word in row['_search'] for word in query)]
         sort = params.get('sort','newest')
         key = {'oldest':lambda r:r['created'],'largest':lambda r:r['bytes'],
+            'smallest':lambda r:r['bytes'],'resolution_asc':lambda r:r['width']*r['height'],
             'resolution':lambda r:r['width']*r['height'],'newest':lambda r:r['created']}.get(sort,lambda r:r['created'])
-        matched.sort(key=key,reverse=sort!='oldest')
+        matched.sort(key=lambda r:(key(r),r['sha']),reverse=sort not in ('oldest','smallest','resolution_asc'))
         page = max(1,int(params.get('page',1))); limit = min(120,max(12,int(params.get('limit',60))))
         return {'total':len(matched),'page':page,'pages':max(1,math.ceil(len(matched)/limit)),
             'items':[self.compact(row) for row in matched[(page-1)*limit:page*limit]]}

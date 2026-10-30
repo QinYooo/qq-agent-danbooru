@@ -4,7 +4,7 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 $repo = 'qq-agent-danbooru'
-$version = 'v1.0.0'
+$version = 'v1.1.0'
 if (-not $InstallDir) { $InstallDir = Join-Path $env:LOCALAPPDATA ('DanbooruToolkit\apps\' + $repo + '-' + $version) }
 $InstallDir = [IO.Path]::GetFullPath($InstallDir)
 if (Test-Path -LiteralPath $InstallDir) {

@@ -25,6 +25,8 @@ jobs:
       - run: python -B -m unittest discover -s tests -p "test_*.py" -v
       - name: Check browser JavaScript
         run: node --check web/static/app.js
+      - name: Test preview, folder drop and pagination
+        run: node --test tests/interaction.test.cjs
       - name: Test QQ modules when present
         shell: bash
         run: |

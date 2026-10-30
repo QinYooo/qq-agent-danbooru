@@ -477,6 +477,8 @@ class Archive:
                 result.update(status=request.get("status", "rejected"), reason=str(request.get("reason", "unspecified"))[:200])
                 return self.record(result, meta)
             data = read_source(request.get("source"), cfg)
+            if meta.get("groupId") and len(data) < 300 * 1024:
+                raise Rejected("qq_image_below_300kb")
             if time.monotonic() - self.last_scan > 30:
                 self.sync_library()
             sha = hashlib.sha256(data).hexdigest()

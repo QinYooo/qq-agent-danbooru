@@ -30,7 +30,7 @@ const bytes=n=>n>=1024**3?(n/1024**3).toFixed(1)+' GiB':n>=1024**2?(n/1024**2).t
 const number=n=>Number(n||0).toLocaleString('zh-CN');
 const date=n=>new Date(n*1000).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false});
 const state={csrf:'',stats:{},view:'all',q:'',tags:[],page:1,sort:'newest',rating:'all',items:[],selected:new Set(),
-  detail:null,edit:null,dirty:false,dense:localStorage.getItem('dense')==='1',reveal:localStorage.getItem('reveal')==='1',importTab:'files',files:[],jobs:[],load:0};
+  selectMode:false,pages:1,lightbox:null,dropSequence:0,detail:null,edit:null,dirty:false,dense:localStorage.getItem('dense')==='1',reveal:localStorage.getItem('reveal')==='1',importTab:'files',files:[],jobs:[],load:0};
 const views={all:['全部图片','YOUR VISUAL LIBRARY','收集好作品，也让每一张图都各归其位。'],today:['最近收录','RECENTLY COLLECTED','今天新收录的图片，在这里逐张查看与整理。'],
   review:['待整理','A LITTLE MORE CURATION','检查识别结果，补充标签，让图库更准确。'],starred:['我的收藏','WORTH KEEPING CLOSE','把格外喜欢的作品，放在随时能找到的地方。'],
   unknown:['角色未识别','FIND THEIR NAMES','这些作品已经收录，等待你为角色补上名字。'],trash:['回收站','ROOM TO RECONSIDER','移出图库的图片暂存在这里，可以恢复。'],
@@ -71,7 +71,7 @@ async function shortcuts(){
   }catch{}
 }
 async function navigate(view){
-  if(!await discardChanges())return;closeInspector();state.view=view;state.page=1;state.q='';state.tags=[];state.selected.clear();$('#search').value='';
+  if(!await discardChanges())return;closeInspector();state.view=view;state.selectMode=false;state.page=1;state.q='';state.tags=[];state.selected.clear();$('#search').value='';
   renderNavigation();renderSelection();loadContent();
 }
 async function browseTag(row){
@@ -103,7 +103,7 @@ async function loadContent(quiet=false){
       if(serial!==state.load)return;renderCatalog(data);return;
     }
     const data=await api('/api/images?'+new URLSearchParams({view:state.view,q:state.q,tags:state.tags.map(row=>row.tag).join(','),rating:state.rating,sort:state.sort,page:state.page,limit:60}));
-    if(serial!==state.load)return;state.items=data.items;renderPhotos(data);
+    if(serial!==state.load)return;if(state.page>data.pages){state.page=data.pages;return loadContent();}state.pages=data.pages;state.items=data.items;renderPhotos(data);
   }catch(error){if(serial===state.load)$('#content').innerHTML=`<div class="load-error">${esc(error.message)}<br>可以点击右上方刷新后重试。</div>`;}
 }
 function renderPhotos(data,trash=false){
@@ -121,7 +121,7 @@ function renderPhotos(data,trash=false){
   }).join('')||empty(trash?'回收站是空的':'这里还没有图片',trash?'移出图库的图片会暂存在这里。':'试着换个筛选条件，或者导入一些新图片。');
   $('#content').querySelectorAll('.photo-card').forEach((card,i)=>{
     const row=data.items[i];
-    card.onclick=event=>{if(trash){if(event.target.closest('.trash-restore'))restoreTrash(row.trashId);else showTrashPreview(row);return;}if(event.target.matches('.card-checkbox')){selectCard(row.sha,event.target.checked);return;}openInspector(row.sha);};
+    card.onclick=event=>{if(trash){if(event.target.closest('.trash-restore'))restoreTrash(row.trashId);else showTrashPreview(row);return;}if(event.target.matches('.card-checkbox')){selectCard(row.sha,event.target.checked);return;}if(state.selectMode||event.ctrlKey||event.metaKey){selectCard(row.sha,!state.selected.has(row.sha));return;}openInspector(row.sha);};
     card.onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();trash?showTrashPreview(row):openInspector(row.sha);}};
   });
   pagination(data.pages||1);renderSelection();$('#footer-summary').textContent=`本页 ${data.items.length} 张 · ${trash?'回收站':'原图保存在本地图库'}`;
@@ -133,13 +133,16 @@ function renderCatalog(data){
   $('#content').querySelectorAll('.collection-card').forEach((button,i)=>button.onclick=()=>browseTag(data.items[i]));pagination(Math.max(1,Math.ceil(data.total/60)));
 }
 function pagination(pages){
-  $('#pagination').innerHTML=pages>1?`<button id="previous-page" ${state.page<=1?'disabled':''}>上一页</button><span>${state.page} / ${pages}</span><button id="next-page" ${state.page>=pages?'disabled':''}>下一页</button>`:'';
-  for(const [selector,delta] of [['#previous-page',-1],['#next-page',1]])if($(selector))$(selector).onclick=()=>{state.page+=delta;$('#content-scroll').scrollTop=0;loadContent();};
+  $('#pagination').innerHTML=pages>1?`<button id="previous-page" ${state.page<=1?'disabled':''}>上一页</button><span>${state.page} / ${pages}</span><button id="next-page" ${state.page>=pages?'disabled':''}>下一页</button><form id="page-jump"><label>跳至 <input id="page-number" type="number" min="1" max="${pages}" value="${state.page}" aria-label="跳转页码"> 页</label><button>前往</button></form>`:'';
+  const jump=async page=>{if(!await discardChanges())return;closeInspector();state.page=Math.max(1,Math.min(pages,page));$('#content-scroll').scrollTop=0;loadContent();};
+  for(const [selector,delta] of [['#previous-page',-1],['#next-page',1]])if($(selector))$(selector).onclick=()=>jump(state.page+delta);
+  if($('#page-jump'))$('#page-jump').onsubmit=event=>{event.preventDefault();const value=Number($('#page-number').value);if(Number.isInteger(value))jump(value);};
 }
 function selectCard(sha,selected){selected?state.selected.add(sha):state.selected.delete(sha);renderSelection();}
 function renderSelection(){
-  $('#selection-bar').classList.toggle('hidden',!state.selected.size);$('#selection-count').textContent=`已选择 ${state.selected.size} 张`;
-  $('#content').classList.toggle('select-mode',!!state.selected.size);
+  $('#toggle-selection').setAttribute('aria-pressed',String(state.selectMode));
+  $('#selection-bar').classList.toggle('hidden',!state.selected.size&&!state.selectMode);$('#selection-count').textContent=`已选择 ${state.selected.size} 张`;
+  $('#content').classList.toggle('select-mode',state.selectMode||!!state.selected.size);
   $('#content').querySelectorAll('.photo-card').forEach(card=>{const selected=state.selected.has(card.dataset.sha);card.classList.toggle('selected',selected);const input=card.querySelector('input');if(input)input.checked=selected;});
 }
 class TagPicker{
@@ -215,7 +218,41 @@ async function deleteImage(detail){
   try{const result=await api('/api/images/'+detail.sha+'/delete',{});closeInspector();loadContent(true);refreshStats();toast('已移入回收站',{text:'撤销',run:()=>restoreTrash(result.trashId)});}catch(error){toast(error.message);}
 }
 async function restoreTrash(id){try{await api('/api/trash/'+id+'/restore',{});toast('图片已恢复到图库');refreshStats();loadContent(true);}catch(error){toast(error.message);}}
-function showLightbox(sha,title,trash){$('#lightbox-image').src='/media/'+sha+'/original'+(trash?'?trash='+trash:'');$('#lightbox-caption').textContent=title;$('#lightbox').showModal();}
+function showLightbox(sha,title,trash){
+  const rows=state.items.slice();let index=rows.findIndex(row=>row.sha===sha);
+  if(index<0){rows.push({sha,title,trashId:trash});index=rows.length-1;}
+  state.lightbox={rows,index,firstPage:state.page,lastPage:state.page,pages:state.pages,busy:false,trash:!!trash,
+    query:{view:state.view,q:state.q,tags:state.tags.map(row=>row.tag).join(','),rating:state.rating,sort:state.sort,limit:60}};
+  if(!$('#lightbox').open)$('#lightbox').showModal();renderLightbox();
+}
+function renderLightbox(){
+  const box=state.lightbox;if(!box)return;const row=box.rows[box.index];
+  $('#lightbox-image').src='/media/'+row.sha+'/original'+(box.trash?'?trash='+encodeURIComponent(row.trashId):'');
+  $('#lightbox-caption').textContent=(row.title||'图片')+' · '+(box.trash?box.index+1:(box.firstPage-1)*60+box.index+1);
+  $('#lightbox-prev').disabled=box.busy||(box.index===0&&(box.trash||box.firstPage<=1));
+  $('#lightbox-next').disabled=box.busy||(box.index===box.rows.length-1&&(box.trash||box.lastPage>=box.pages));
+  $('#lightbox-strip').innerHTML=box.rows.map((item,i)=>`<button class="${i===box.index?'active':''}" aria-label="预览 ${esc(item.title)}" aria-current="${i===box.index}" data-preview="${i}"><img loading="lazy" class="${item.category==='NSFW'&&!state.reveal?'sensitive':''}" src="/media/${item.sha}/thumb?size=160${box.trash?'&trash='+encodeURIComponent(item.trashId):''}" alt="${esc(item.title)}"></button>`).join('');
+  $('#lightbox-strip').querySelectorAll('button').forEach(button=>button.onclick=()=>{box.index=Number(button.dataset.preview);renderLightbox();});
+  $('#lightbox-strip .active')?.scrollIntoView({block:'nearest',inline:'center'});
+}
+async function stepLightbox(delta){
+  const box=state.lightbox;if(!box||box.busy)return;
+  const next=box.index+delta;
+  if(next>=0&&next<box.rows.length){box.index=next;renderLightbox();return;}
+  const page=delta<0?box.firstPage-1:box.lastPage+1;
+  if(box.trash||page<1||page>box.pages)return;
+  box.busy=true;$('#lightbox-prev').disabled=$('#lightbox-next').disabled=true;
+  try{
+    const data=await api('/api/images?'+new URLSearchParams({...box.query,page}));
+    if(state.lightbox!==box)return;
+    if(!data.items.length){toast('该页图片已变化，请刷新图库');return;}
+    if(delta<0){box.rows.unshift(...data.items);box.index=data.items.length-1;box.firstPage=page;}
+    else{box.index=box.rows.length;box.rows.push(...data.items);box.lastPage=page;}
+  }catch(error){toast(error.message);}finally{box.busy=false;if(state.lightbox===box)renderLightbox();}
+}
+$('#lightbox-prev').onclick=()=>stepLightbox(-1);$('#lightbox-next').onclick=()=>stepLightbox(1);
+$('#lightbox').addEventListener('close',()=>{state.lightbox=null;$('#lightbox-image').removeAttribute('src');$('#lightbox-strip').innerHTML='';});
+$('#lightbox-strip').addEventListener('wheel',event=>{if(Math.abs(event.deltaY)>Math.abs(event.deltaX)){event.preventDefault();$('#lightbox-strip').scrollLeft+=event.deltaY;}},{passive:false});
 function showTrashPreview(row){showLightbox(row.sha,row.title,row.trashId);}
 let filterPicker;
 $('#open-filter').onclick=()=>{filterPicker=new TagPicker($('#filter-picker'),state.tags,'any',()=>{});$('#filter-dialog').showModal();setTimeout(()=>filterPicker.input.focus(),100);};
@@ -228,13 +265,23 @@ $('#refresh-library').onclick=()=>{refreshStats();loadContent();shortcuts();};
 $('#toggle-density').onclick=()=>{state.dense=!state.dense;localStorage.setItem('dense',state.dense?'1':'0');$('#content').classList.toggle('dense',state.dense);};
 $('#all-characters').onclick=()=>navigate('characters');
 $('#reveal-nsfw').checked=state.reveal;$('#reveal-nsfw').onchange=event=>{state.reveal=event.target.checked;localStorage.setItem('reveal',state.reveal?'1':'0');loadContent(true);if(state.detail)renderInspector();};
-$('#clear-selection').onclick=()=>{state.selected.clear();renderSelection();};
+$('#clear-selection').onclick=()=>{state.selected.clear();state.selectMode=false;renderSelection();};
+$('#toggle-selection').onclick=()=>{state.selectMode=!state.selectMode;renderSelection();};
+$('#select-page').onclick=()=>{for(const row of state.items)state.selected.add(row.sha);renderSelection();};
 document.querySelectorAll('[data-batch]').forEach(button=>button.onclick=async()=>{
   const action=button.dataset.batch;
   if(action==='delete'&&!await confirmAction(`移出选中的 ${state.selected.size} 张图片？`,'这些图片会进入回收站，可以恢复。','移入回收站',true))return;
-  try{const result=await api('/api/batch',{ids:[...state.selected],action:action==='delete'?'delete':'flags',flags:action==='review'?{reviewed:true}:{starred:true}});
-    const failed=result.items.filter(row=>!row.ok);toast(failed.length?`${failed.length} 张未完成，请刷新后检查`:'批量操作已完成');state.selected.clear();renderSelection();if(action==='delete')closeInspector();loadContent(true);refreshStats();
-  }catch(error){toast(error.message);}
+  if(!state.selected.size)return;
+  const ids=[...state.selected];document.querySelectorAll('[data-batch]').forEach(node=>node.disabled=true);
+  try{let failed=0;
+    for(let i=0;i<ids.length;i+=120){
+      const result=await api('/api/batch',{ids:ids.slice(i,i+120),action:action==='delete'?'delete':'flags',flags:action==='review'?{reviewed:true}:{starred:true}});
+      for(const row of result.items){if(row.ok)state.selected.delete(row.sha);else failed++;}
+    }
+    toast(failed?`${failed} 张未完成，已保留选择，可重试`:'批量操作已完成');
+  }catch(error){toast(error.message);}finally{
+    document.querySelectorAll('[data-batch]').forEach(node=>node.disabled=false);renderSelection();if(action==='delete')closeInspector();loadContent(true);refreshStats();
+  }
 });
 
 // Local import controls: browser files or a directly read local directory.
@@ -249,26 +296,51 @@ $('#choose-files').onclick=event=>{event.stopPropagation();$('#file-input').clic
 $('#choose-directory').onclick=event=>{event.stopPropagation();$('#directory-input').click();};
 $('#file-input').onchange=event=>chooseFiles(event.target.files);$('#directory-input').onchange=event=>chooseFiles(event.target.files);
 $('#drop-zone').onclick=event=>{if(!event.target.closest('button'))$('#file-input').click();};
-for(const name of ['dragenter','dragover'])$('#drop-zone').addEventListener(name,event=>{event.preventDefault();$('#drop-zone').classList.add('drag-over');});
-for(const name of ['dragleave','drop'])$('#drop-zone').addEventListener(name,event=>{event.preventDefault();$('#drop-zone').classList.remove('drag-over');if(name==='drop')chooseFiles(event.dataTransfer.files);});
+// Capture entries during the drop event, then recursively read every directory batch.
+const importPaths=new WeakMap();
+async function readDropEntries(entries){
+  const files=[];
+  async function walk(entry,prefix=''){
+    if(entry.isFile){const file=await new Promise((resolve,reject)=>entry.file(resolve,reject));importPaths.set(file,prefix+file.name);files.push(file);if(files.length>20000)throw new Error('一次最多导入20000个文件，请分批拖入');}
+    else if(entry.isDirectory){const reader=entry.createReader();while(true){const batch=await new Promise((resolve,reject)=>reader.readEntries(resolve,reject));if(!batch.length)break;for(const child of batch)await walk(child,prefix+entry.name+'/');}}
+  }
+  for(const entry of entries)await walk(entry);return files;
+}
+function isFileDrag(event){return Array.from(event.dataTransfer?.types||[]).includes('Files');}
+document.addEventListener('dragover',event=>{if(isFileDrag(event)){event.preventDefault();event.dataTransfer.dropEffect='copy';$('#drop-zone').classList.add('drag-over');}});
+document.addEventListener('dragleave',event=>{if(!event.relatedTarget)$('#drop-zone').classList.remove('drag-over');});
+document.addEventListener('drop',async event=>{
+  if(!isFileDrag(event))return;event.preventDefault();$('#drop-zone').classList.remove('drag-over');
+  const sequence=++state.dropSequence;
+  const entries=Array.from(event.dataTransfer.items||[]).map(item=>item.webkitGetAsEntry?.()).filter(Boolean);
+  const fallback=Array.from(event.dataTransfer.files);
+  if(state.uploading){toast('正在提交导入任务，请稍候再拖入');return;}
+  if($('#open-import').disabled){toast('当前为浏览模式，需先安装分类环境');return;}
+  if(!$('#import-dialog').open)$('#import-dialog').showModal();
+  document.querySelector('[data-import-tab="files"]').click();
+  $('#start-import').disabled=true;$('#import-status').textContent='正在读取拖入的文件夹…';
+  try{const files=entries.length?await readDropEntries(entries):fallback;if(sequence===state.dropSequence)chooseFiles(files);}
+  catch(error){if(sequence===state.dropSequence){chooseFiles([]);toast(error.message);}}
+  finally{if(sequence===state.dropSequence)$('#start-import').disabled=false;}
+});
 $('#start-import').onclick=async()=>{
-  const button=$('#start-import');button.disabled=true;
+  const button=$('#start-import');button.disabled=true;state.uploading=true;const files=state.files.slice();
   try{
     let result;
     if(state.importTab==='folder'){
       const value=$('#folder-path').value.trim();if(!value)throw new Error('请输入图片来源文件夹');result=await api('/api/import/folder',{path:value});
     }else{
-      if(!state.files.length)throw new Error('请先选择图片');const uploaded=[];
-      for(let i=0;i<state.files.length;i++){
-        const file=state.files[i];$('#import-status').textContent=`正在准备 ${i+1} / ${state.files.length}`;
+      if(!files.length)throw new Error('请先选择图片');if(files.length>20000)throw new Error('一次最多导入20000张图片');for(const file of files)if(file.size>25*1024**2)throw new Error(file.name+' 超过25MiB');const uploaded=[];
+      for(let i=0;i<files.length;i++){
+        const file=files[i];$('#import-status').textContent=`正在准备 ${i+1} / ${files.length}`;
         if(file.size>25*1024**2)throw new Error(file.name+' 超过25MiB，请移除后重试');
-        const response=await fetch('/api/upload?name='+encodeURIComponent(file.webkitRelativePath||file.name),{method:'POST',headers:{'Content-Type':'application/octet-stream','X-CSRF-Token':state.csrf},body:file});
+        const response=await fetch('/api/upload?name='+encodeURIComponent(importPaths.get(file)||file.webkitRelativePath||file.name),{method:'POST',headers:{'Content-Type':'application/octet-stream','X-CSRF-Token':state.csrf},body:file});
         const value=await response.json();if(!response.ok)throw new Error(value.error);uploaded.push(value);
       }
       result=await api('/api/import/files',{files:uploaded});
     }
     $('#import-dialog').close();toast(`${number(result.total)} 张图片已加入本地导入队列`);state.files=[];$('#chosen-files').textContent='';$('#import-status').textContent='尚未选择图片';navigate('jobs');
-  }catch(error){toast(error.message);}finally{button.disabled=false;}
+  }catch(error){toast(error.message);}finally{button.disabled=false;state.uploading=false;}
 };
 const jobStatus={queued:'等待中',running:'分类中',done:'已完成',cancelled:'已取消',error:'遇到问题',interrupted:'已中断'};
 function reason(value){
@@ -290,6 +362,7 @@ document.querySelectorAll('[data-close]').forEach(button=>button.onclick=()=>$('
 document.addEventListener('click',event=>{if(!event.target.closest('.tagbox'))document.querySelectorAll('.tag-suggestions').forEach(node=>node.classList.add('hidden'));});
 document.addEventListener('keydown',async event=>{
   if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;
+  if($('#lightbox').open&&(event.key==='ArrowLeft'||event.key==='ArrowRight')){event.preventDefault();stepLightbox(event.key==='ArrowRight'?1:-1);return;}
   if(event.key==='/'&&!document.querySelector('dialog[open]')){event.preventDefault();$('#search').focus();}
   if(event.key==='Escape'&&state.detail&&!document.querySelector('dialog[open]')){if(await discardChanges())closeInspector();}
   if((event.key==='ArrowLeft'||event.key==='ArrowRight')&&state.detail&&!document.querySelector('dialog[open]')){

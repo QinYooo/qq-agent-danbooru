@@ -94,7 +94,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         try:
             self.check_origin();route=urlsplit(self.path).path;p=self.params();store=self.app.store
-            if route=='/api/health':return self.reply({'ok':True,'app':'danbooru-manager','version':'1.0.0'})
+            if route=='/api/health':return self.reply({'ok':True,'app':'danbooru-manager','version':'1.1.0'})
             if route=='/api/bootstrap':return self.reply({'csrf':self.app.csrf,'root':str(store.root),'stats':store.stats(),'classificationEnabled':self.app.config.get('classificationEnabled',True)})
             if route=='/api/stats':return self.reply(store.stats())
             if route=='/api/images':return self.reply(store.list_images(p))

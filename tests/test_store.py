@@ -46,6 +46,15 @@ class StoreTest(unittest.TestCase):
             for table in ('images','fingerprints','library_files','manager_flags'):
                 self.assertEqual(db.execute('SELECT count(*) FROM '+table).fetchone()[0],0)
 
+    def test_all_sort_directions_and_stable_ties(self):
+        original=self.store.snapshot()[0][0]
+        rows=[{**original,'sha':str(i)*64,'created':i,'bytes':i*100,'width':i*20,'height':20} for i in (1,3,2)]
+        self.store.snapshot=lambda:(rows,[])
+        for sort in ('newest','largest','resolution'):
+            self.assertEqual([r['sha'][0] for r in self.store.list_images({'sort':sort})['items']],list('321'))
+        for sort in ('oldest','smallest','resolution_asc'):
+            self.assertEqual([r['sha'][0] for r in self.store.list_images({'sort':sort})['items']],list('123'))
+
     def test_browse_and_filter(self):
         self.assertEqual(self.store.list_images({'tags':'pantyhose,rio_(blue_archive)'})['total'],1)
         self.assertEqual(self.store.list_images({'q':'莉音'})['total'],1)

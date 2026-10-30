@@ -27,13 +27,13 @@
     <section class="toolbar" aria-label="筛选图片">
       <label class="search-box"><span data-icon="search"></span><input id="search" placeholder="搜索中文名、角色或标签…" autocomplete="off"><kbd>/</kbd></label>
       <div class="segmented" id="rating-filter"><button class="active" data-rating="all">全部</button><button data-rating="SFW">SFW</button><button data-rating="NSFW">NSFW</button></div>
-      <label class="sort-select"><span data-icon="sort"></span><select id="sort"><option value="newest">最新收录</option><option value="oldest">最早收录</option><option value="resolution">分辨率最高</option><option value="largest">文件最大</option></select></label>
-      <button class="button subtle filter-button" id="open-filter"><span data-icon="filter"></span>标签筛选</button>
+      <label class="sort-select"><span data-icon="sort"></span><select id="sort"><option value="newest">最新收录</option><option value="oldest">最早收录</option><option value="resolution">分辨率最高</option><option value="smallest">文件最小</option><option value="largest">文件最大</option><option value="resolution_asc">分辨率最低</option></select></label>
+      <button class="button subtle" id="toggle-selection" aria-pressed="false">多选</button><button class="button subtle filter-button" id="open-filter"><span data-icon="filter"></span>标签筛选</button>
     </section>
     <div class="active-filters" id="active-filters"></div>
     <div class="grid-meta" id="grid-meta"><span id="result-caption">正在读取图片…</span><label class="sensitive-switch"><input type="checkbox" id="reveal-nsfw">显示敏感缩略图</label></div>
     <div class="content-scroll" id="content-scroll"><div id="content" class="photo-grid"></div><div id="pagination" class="pagination"></div></div>
-    <div class="selection-bar hidden" id="selection-bar"><span id="selection-count"></span><button data-batch="review">标记已整理</button><button data-batch="star">收藏</button><button data-batch="delete" class="danger-text">移入回收站</button><button id="clear-selection" class="selection-clear" title="取消选择">×</button></div>
+    <div class="selection-bar hidden" id="selection-bar"><span id="selection-count"></span><button id="select-page">全选本页</button><button data-batch="review">标记已整理</button><button data-batch="star">收藏</button><button data-batch="delete" class="danger-text">移入回收站</button><button id="clear-selection" class="selection-clear" title="取消选择">×</button></div>
     <footer class="main-footer"><span id="footer-summary">本地图片 · 本地分类 · 中文标签</span><span><span class="keycap">←</span><span class="keycap">→</span> 切换图片 <span class="keycap">Esc</span> 关闭预览</span></footer>
   </main>
   <aside id="inspector" class="inspector" aria-label="图片详情"></aside>
@@ -45,11 +45,11 @@
   <div class="dialog-header"><div><span class="eyebrow">GROW YOUR COLLECTION</span><h2>把好图片收进来</h2></div><button class="close-button" data-close="import-dialog" aria-label="关闭">×</button></div>
   <p class="muted">沿用现有的本地分类、质量筛选与相似图去重规则。</p>
   <div class="import-tabs"><button class="active" data-import-tab="files">选择图片</button><button data-import-tab="folder">从本地文件夹导入</button></div>
-  <section id="import-files-tab"><div class="drop-zone" id="drop-zone"><span class="upload-art" data-icon="images"></span><h3>拖入图片，或者点这里选择</h3><p>支持 JPG、PNG、WEBP、BMP、GIF</p><div><button class="button secondary" id="choose-files">选择图片</button><button class="button subtle" id="choose-directory">选择文件夹</button></div></div><input hidden id="file-input" type="file" multiple accept="image/jpeg,image/png,image/webp,image/bmp,image/gif"><input hidden id="directory-input" type="file" multiple webkitdirectory><div id="chosen-files" class="chosen-files"></div></section>
+  <section id="import-files-tab"><div class="drop-zone" id="drop-zone"><span class="upload-art" data-icon="images"></span><h3>拖入图片或文件夹，或者点这里选择</h3><p>支持 JPG、PNG、WEBP、BMP、GIF</p><div><button class="button secondary" id="choose-files">选择图片</button><button class="button subtle" id="choose-directory">选择文件夹</button></div></div><input hidden id="file-input" type="file" multiple accept="image/jpeg,image/png,image/webp,image/bmp,image/gif"><input hidden id="directory-input" type="file" multiple webkitdirectory><div id="chosen-files" class="chosen-files"></div></section>
   <section id="import-folder-tab" class="hidden"><label class="field-label" for="folder-path">图片来源文件夹</label><input class="text-input" id="folder-path" placeholder="选择要导入的本地文件夹"><p class="field-help">包含子文件夹，读取后复制收录，来源文件保留。适合导入较大的本地图库。</p></section>
   <div class="import-pipeline"><span><b>1</b>读取图片</span><i></i><span><b>2</b>本地筛选与识别</span><i></i><span><b>3</b>分类入库</span></div>
   <div class="import-local-note"><span data-icon="shield"></span><div>图片始终留在这台电脑<p>不经过聊天 Agent 或云端，低质量图片和重复图片会自动跳过。</p></div></div>
   <div class="dialog-footer"><span id="import-status" class="muted">尚未选择图片</span><button class="button primary" id="start-import">开始导入<span data-icon="arrow"></span></button></div>
 </dialog>
-<dialog id="lightbox" class="lightbox"><button class="lightbox-close" data-close="lightbox" aria-label="关闭预览">×</button><img id="lightbox-image" alt="图片大图预览"><div id="lightbox-caption"></div></dialog>
+<dialog id="lightbox" class="lightbox"><button class="lightbox-close" data-close="lightbox" aria-label="关闭预览">×</button><div class="lightbox-stage"><button id="lightbox-prev" class="lightbox-nav" aria-label="上一张">‹</button><img id="lightbox-image" alt="图片大图预览"><button id="lightbox-next" class="lightbox-nav" aria-label="下一张">›</button></div><div id="lightbox-caption" aria-live="polite"></div><div id="lightbox-strip" class="lightbox-strip" aria-label="顺序图片队列"></div></dialog>
 </body></html>

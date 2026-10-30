@@ -81,6 +81,10 @@ class ApiTest(unittest.TestCase):
                 self.assertEqual(status['status'],'done',status)
                 self.assertEqual(status['duplicate'],1);self.assertEqual(status['rejected'],1)
                 self.assertEqual(duplicate.read_bytes(),before);self.assertTrue(small.exists())
+                batch=request('/api/batch',{'ids':[sha,'f'*64],'action':'delete'},token)
+                self.assertTrue(batch['items'][0]['ok']);self.assertFalse(batch['items'][1]['ok'])
+                self.assertEqual(request('/api/images')['total'],0)
+                self.assertEqual(request('/api/trash')['total'],1)
             finally:
                 application.jobs.stop();application.jobs.thread.join(timeout=5)
                 server.shutdown();server.server_close();thread.join(timeout=5)
