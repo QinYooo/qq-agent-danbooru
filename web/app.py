@@ -19,6 +19,7 @@ from PIL import Image,ImageOps
 from store import Store,Conflict,dumps
 from jobs import Jobs,EXTENSIONS
 from runtime_config import load_config
+from mobile_upload import MobileUploads,adapters
 
 HERE=Path(__file__).resolve().parent
 Image.MAX_IMAGE_PIXELS=40000000
@@ -28,6 +29,7 @@ class Application:
     def __init__(self,config):
         self.config=config;self.store=Store(config);self.jobs=Jobs(self.store);self.csrf=secrets.token_urlsafe(32)
         self.thumb_slots=threading.Semaphore(4)
+        self.mobile=MobileUploads(self.store,self.jobs)
 
     def thumbnail(self,sha,trash=None,size=480):
         size=240 if size<=240 else 480 if size<=480 else 1200
@@ -97,6 +99,7 @@ class Handler(BaseHTTPRequestHandler):
             if route=='/api/health':return self.reply({'ok':True,'app':'danbooru-manager','version':'1.1.0'})
             if route=='/api/bootstrap':return self.reply({'csrf':self.app.csrf,'root':str(store.root),'stats':store.stats(),'classificationEnabled':self.app.config.get('classificationEnabled',True)})
             if route=='/api/stats':return self.reply(store.stats())
+            if route=='/api/mobile':return self.reply({**self.app.mobile.info(),'adapters':adapters()})
             if route=='/api/images':return self.reply(store.list_images(p))
             if route.startswith('/api/images/'):return self.reply(store.detail(route.rsplit('/',1)[1]))
             if route=='/api/tags':return self.reply(store.tags(p.get('q',''),p.get('kind','general'),p.get('scope')=='library',min(240,int(p.get('limit',60))),max(0,int(p.get('offset',0)))))
@@ -135,6 +138,8 @@ class Handler(BaseHTTPRequestHandler):
                 except BaseException:target.unlink(missing_ok=True);raise
                 return self.reply({'token':token,'name':name})
             body=self.json_body()
+            if route=='/api/mobile/start':return self.reply(self.app.mobile.start(body.get('address','')))
+            if route=='/api/mobile/stop':return self.reply(self.app.mobile.stop())
             if route=='/api/shutdown':
                 self.reply({'ok':True})
                 threading.Thread(target=self.server.shutdown,daemon=True).start()
@@ -166,6 +171,7 @@ class Handler(BaseHTTPRequestHandler):
                     files.append({'path':str(file),'name':str(item.get('name',token))[:500]})
                 return self.reply(self.app.jobs.create('网页文件导入',files))
             if route.startswith('/api/jobs/') and route.endswith('/cancel'):return self.reply(self.app.jobs.cancel(route.split('/')[3]))
+            if route.startswith('/api/jobs/') and route.endswith('/retry'):return self.reply(self.app.jobs.retry_mobile(route.split('/')[3]))
             if route.startswith('/api/trash/') and route.endswith('/restore'):return self.reply(store.restore(route.split('/')[3]))
             raise FileNotFoundError('接口不存在')
         except (BrokenPipeError,ConnectionResetError):pass
@@ -183,6 +189,7 @@ def serve(config):
     print('Danbooru Manager http://127.0.0.1:'+str(server.server_port),flush=True)
     try:server.serve_forever(poll_interval=.5)
     finally:
+        app.mobile.stop()
         app.jobs.stop();server.server_close();app.jobs.thread.join(timeout=60)
 
 

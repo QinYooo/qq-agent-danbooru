@@ -17,3 +17,7 @@
 #toggle-selection[aria-pressed=true]{background:#fbe8df;color:#ba4a26}.select-mode .card-checkbox{opacity:1;pointer-events:auto}
 @media(max-width:1200px){.toolbar .sort-select{display:flex}}
 @media(max-width:600px){.lightbox .lightbox-stage{padding:0 36px}.lightbox .lightbox-nav{width:30px;height:50px;left:0}.lightbox .lightbox-nav:last-child{right:0}.selection-bar{flex-wrap:wrap}.toolbar{flex-wrap:wrap}}
+
+.phone-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}#phone-pairing{text-align:center}#phone-qr{max-width:100%;height:auto;background:white}#phone-url{overflow-wrap:anywhere;font-size:12px}
+
+#import-dialog [hidden]{display:none!important}.import-dialog{overflow-y:auto}#import-phone-tab .field-help{font-size:11px}

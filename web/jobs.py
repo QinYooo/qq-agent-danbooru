@@ -15,6 +15,7 @@ EXTENSIONS={'.jpg','.jpeg','.png','.webp','.bmp','.gif'}
 class Jobs:
     def __init__(self,store):
         self.store=store;self.queue=queue.Queue();self.stopping=False
+        self.lock=threading.RLock()
         with store.connect() as db:
             db.execute("UPDATE manager_jobs SET status='interrupted',phase='上次运行已中断，请重新选择来源导入' WHERE status IN ('queued','running')")
             db.commit()
@@ -28,11 +29,41 @@ class Jobs:
         with self.store.connect() as db:
             db.execute('INSERT INTO manager_jobs(id,status,phase,source,total,created,updated) VALUES(?,?,?,?,?,?,?)',
                 (job,'queued','等待本地分类',source,len(files),at,at))
-            db.executemany('INSERT INTO manager_job_items(job,position,name,path,status) VALUES(?,?,?,?,?)',
-                [(job,i,item['name'],item['path'],'pending') for i,item in enumerate(files)])
+            db.executemany('INSERT INTO manager_job_items(job,position,name,path,status,sha) VALUES(?,?,?,?,?,?)',
+                [(job,i,item['name'],item['path'],'pending',item.get('sha','')) for i,item in enumerate(files)])
             db.commit()
         self.queue.put(job)
         return {'ok':True,'id':job,'total':len(files)}
+
+    def append_mobile(self,job,item):
+        # One growing task per pairing session, processed as each file arrives.
+        with self.lock:
+            if not job:
+                return {**self.create('手机上传',[item]),'position':0}
+            with self.store.connect() as db:
+                row=db.execute('SELECT * FROM manager_jobs WHERE id=?',(job,)).fetchone()
+                if not row or row['source']!='手机上传' or row['cancel']:
+                    raise ValueError('手机导入任务已取消，请在电脑关闭后重新开启手机上传')
+                if row['total']>=20000:raise ValueError('本次已达20000张，请重新开启手机上传')
+                position=row['total'];enqueue=row['status'] not in ('queued','running')
+                db.execute('INSERT INTO manager_job_items(job,position,name,path,status,sha) VALUES(?,?,?,?,?,?)',
+                    (job,position,item['name'],item['path'],'pending',item['sha']))
+                db.execute('UPDATE manager_jobs SET total=total+1,status=?,updated=? WHERE id=?',
+                    ('queued' if enqueue else row['status'],time.time(),job));db.commit()
+            if enqueue:self.queue.put(job)
+            return {'id':job,'position':position}
+
+    def retry_mobile(self,job):
+        with self.lock, self.store.connect() as db:
+            row=db.execute('SELECT * FROM manager_jobs WHERE id=?',(job,)).fetchone()
+            if not row or row['source']!='手机上传':raise ValueError('仅支持重试手机暂存任务')
+            if row['status'] in ('queued','running'):raise ValueError('任务正在处理中')
+            items=db.execute("SELECT * FROM manager_job_items WHERE job=? AND status IN ('pending','error')",(job,)).fetchall()
+            if not items:raise ValueError('没有需要重试的图片；筛除项保留在暂存区，可手动核对')
+            db.execute("UPDATE manager_job_items SET status='pending',reason='',result='{}' WHERE job=? AND status IN ('pending','error')",(job,))
+            db.execute("UPDATE manager_jobs SET status='queued',cancel=0,error='',phase='重试暂存图片',updated=? WHERE id=?",(time.time(),job));db.commit()
+            self.queue.put(job)
+        return {'ok':True,'id':job}
 
     def folder(self,value):
         root=Path(value).resolve(strict=True)
@@ -84,13 +115,14 @@ class Jobs:
 
     def process(self,job):
         if self.cancelled(job):self.update(job,status='cancelled',phase='已取消');return
-        self.update(job,status='running',phase='正在准备本地筛选流程')
-        with self.store.connect() as db:
-            files=[dict(row) for row in db.execute('SELECT * FROM manager_job_items WHERE job=? ORDER BY position',(job,))]
+        with self.lock, self.store.connect() as db:
+            mobile=db.execute('SELECT source FROM manager_jobs WHERE id=?',(job,)).fetchone()[0]=='手机上传'
+            self.update(job,status='running',phase='正在准备本地筛选流程')
+            files=[dict(row) for row in db.execute("SELECT * FROM manager_job_items WHERE job=? AND status='pending' ORDER BY position",(job,))]
+            counts=collections.Counter({row[0]:row[1] for row in db.execute("SELECT status,count(*) FROM manager_job_items WHERE job=? AND status!='pending' GROUP BY status",(job,))})
         logfile=self.store.state/(job+'.log')
         flags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0
         process=None
-        counts=collections.Counter()
         try:
             with logfile.open('a',encoding='utf-8') as errors:
                 process=subprocess.Popen([self.store.config['python'],'-B','-u','-X','utf8',str(Path(__file__).with_name('classify_batch.py'))],
@@ -109,20 +141,30 @@ class Jobs:
                 for item in files:
                     if self.cancelled(job):break
                     self.update(job,phase='正在分类：'+item['name'])
+                    item['mobile']=mobile
                     process.stdin.write(dumps(item)+'\n');process.stdin.flush()
-                    value=receive();result=value['result'];status=result.get('status','error');counts[status]+=1
+                    value=receive();result=value['result']
+                    if mobile:
+                        from mobile_upload import finish_move
+                        result=finish_move(self.store,item,result)
+                    status=result.get('status','error');counts[status]+=1
                     with self.store.connect() as db:
                         db.execute('UPDATE manager_job_items SET status=?,reason=?,sha=?,result=? WHERE job=? AND position=?',
-                            (status,result.get('reason',''),result.get('sha256',''),dumps(result),job,item['position']))
+                            (status,result.get('reason',''),result.get('sha256') or item.get('sha',''),dumps(result),job,item['position']))
                         db.commit()
                     self.update(job,processed=sum(counts.values()),saved=counts['saved'],rejected=counts['rejected'],duplicate=counts['duplicate'],errors=counts['error'])
                     self.store.invalidate()
                     file=Path(item['path'])
-                    if file.resolve().is_relative_to((self.store.state/'incoming').resolve()):file.unlink(missing_ok=True)
+                    if not mobile and file.resolve().is_relative_to((self.store.state/'incoming').resolve()):file.unlink(missing_ok=True)
                     if result.get('reason') in ('gpu_out_of_memory','insufficient_disk_space'):raise RuntimeError(result['reason'])
                 process.stdin.close();process.wait(timeout=30)
-                cancelled=self.cancelled(job)
-                self.update(job,status='cancelled' if cancelled else 'done',phase='已取消' if cancelled else '导入完成')
+                with self.lock, self.store.connect() as db:
+                    cancelled=self.cancelled(job)
+                    pending=db.execute("SELECT 1 FROM manager_job_items WHERE job=? AND status='pending' LIMIT 1",(job,)).fetchone()
+                    more=bool(mobile and pending and not cancelled)
+                    self.update(job,status='cancelled' if cancelled else 'queued' if more else 'done',
+                        phase='已取消' if cancelled else '继续处理手机图片' if more else '导入完成')
+                    if more:self.queue.put(job)
         finally:
             if process and process.poll() is None:
                 try:process.stdin.close();process.wait(timeout=30)

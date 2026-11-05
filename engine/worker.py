@@ -467,6 +467,9 @@ class Archive:
         write_atomic(self.root / "_state" / "status.json", json.dumps({"updatedAt": entry["time"], **self.model_meta, "stats": self.stats, "last": result}, ensure_ascii=False, indent=2).encode("utf-8"))
         return result
 
+    def write_original(self, path, data):
+        write_atomic(path, data)
+
     def process(self, request):
         started = time.monotonic()
         result = {"id": request.get("id"), "status": "error"}
@@ -542,9 +545,9 @@ class Archive:
                             try:
                                 os.link(self.root / files[0], image_path)
                             except OSError:
-                                write_atomic(image_path, data)
+                                self.write_original(image_path, data)
                         else:
-                            write_atomic(image_path, data)
+                            self.write_original(image_path, data)
                         created.append(image_path)
                     files.append(str(image_path.relative_to(self.root)))
                 self.db.execute("INSERT OR REPLACE INTO images VALUES (?,?,?,?,?,?,?,?)", (sha, metrics["dhash"], signature, image.width, image.height, json.dumps(files), json.dumps(metadata), time.time()))
