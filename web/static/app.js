@@ -289,6 +289,8 @@ $('#open-import').onclick=()=>$('#import-dialog').showModal();
 document.querySelectorAll('[data-import-tab]').forEach(button=>button.onclick=()=>{
   state.importTab=button.dataset.importTab;document.querySelectorAll('[data-import-tab]').forEach(node=>node.classList.toggle('active',node===button));
   $('#import-files-tab').classList.toggle('hidden',state.importTab!=='files');$('#import-folder-tab').classList.toggle('hidden',state.importTab!=='folder');
+  $('#import-phone-tab').classList.toggle('hidden',state.importTab!=='phone');$('#start-import').hidden=state.importTab==='phone';
+  if(state.importTab==='phone'){loadPhone();$('#import-status').textContent='扫码后在手机选择图片';return;}
   $('#import-status').textContent=state.importTab==='folder'?'来源文件不会被移动':state.files.length?`已选择 ${state.files.length} 张图片`:'尚未选择图片';
 });
 function chooseFiles(files){state.files=[...files].filter(file=>/\.(jpg|jpeg|png|webp|bmp|gif)$/i.test(file.name));$('#chosen-files').textContent=state.files.length?`已选择 ${number(state.files.length)} 张：${state.files.slice(0,3).map(file=>file.name).join('、')}${state.files.length>3?'…':''}`:'所选内容中没有支持的图片';$('#import-status').textContent=`已选择 ${number(state.files.length)} 张图片`;}
@@ -296,6 +298,14 @@ $('#choose-files').onclick=event=>{event.stopPropagation();$('#file-input').clic
 $('#choose-directory').onclick=event=>{event.stopPropagation();$('#directory-input').click();};
 $('#file-input').onchange=event=>chooseFiles(event.target.files);$('#directory-input').onchange=event=>chooseFiles(event.target.files);
 $('#drop-zone').onclick=event=>{if(!event.target.closest('button'))$('#file-input').click();};
+function showPhone(value){
+  $('#phone-pairing').hidden=!value.active;$('#phone-stop').hidden=!value.active;$('#phone-start').disabled=!!value.active;$('#phone-address').disabled=!!value.active;
+  if(value.active){$('#phone-qr').src=value.qr;$('#phone-url').href=value.url;$('#phone-url').textContent=value.url;$('#phone-status').textContent=`手机扫码自动连接 · ${new Date(value.expires*1000).toLocaleTimeString('zh-CN')} 关闭`;}else{$('#phone-qr').removeAttribute('src');$('#phone-url').removeAttribute('href');$('#phone-url').textContent='';$('#phone-status').textContent='开启后显示二维码；二维码包含本次连接码，请勿公开。';}
+}
+async function loadPhone(){try{const value=await api('/api/mobile');$('#phone-address').innerHTML=value.adapters.map(row=>`<option value="${esc(row.address)}">${esc(row.name)} · ${esc(row.address)}</option>`).join('');if(value.address)$('#phone-address').value=value.address;showPhone(value);if(!value.adapters.length)$('#phone-status').textContent='未发现可用网卡，请检查局域网连接。';}catch(error){toast(error.message);}}
+$('#phone-start').onclick=async()=>{const button=$('#phone-start');button.disabled=true;try{showPhone(await api('/api/mobile/start',{address:$('#phone-address').value}));}catch(error){toast(error.message);button.disabled=false;}};
+$('#phone-stop').onclick=async()=>{try{showPhone(await api('/api/mobile/stop',{}));}catch(error){toast(error.message);}};
+$('#phone-jobs').onclick=()=>{$('#import-dialog').close();navigate('jobs');};
 // Capture entries during the drop event, then recursively read every directory batch.
 const importPaths=new WeakMap();
 async function readDropEntries(entries){
@@ -345,14 +355,15 @@ $('#start-import').onclick=async()=>{
 const jobStatus={queued:'等待中',running:'分类中',done:'已完成',cancelled:'已取消',error:'遇到问题',interrupted:'已中断'};
 function reason(value){
   const map={exact_duplicate:'完全重复',near_duplicate:'高度相似',low_resolution:'分辨率不足',uncertain_rating:'分级不确定',uncertain_nsfw_evidence:'敏感内容证据不确定',uncertain_artwork_type:'画面类型不确定',flat_or_strongly_blurred_image:'过于模糊或缺少细节',invalid_or_unsafe_image:'图片无法安全读取',file_too_large:'图片过大',extreme_aspect_ratio:'画面比例不合适',animated_image:'动画图片',no_reliable_person:'未识别到可靠人物',accepted_training_candidate:'已收录',accepted_unknown_character_candidate:'已收录，角色待补充',gpu_out_of_memory:'显卡内存不足',insufficient_disk_space:'磁盘空间不足'};
-  if(map[value])return map[value];if(value?.startsWith('unsuitable_image_type:'))return '画面类型不适合训练';if(value?.startsWith('filtered_tag:'))return '命中筛除标签';if(value?.startsWith('screenshot_tag:'))return '截图图片';return value||'等待处理';
+  if(value==='archive_move_pending')return '收录移动待核对，原件保留，可重试';if(value==='archive_recovered')return '已恢复收录记录';if(map[value])return map[value];if(value?.startsWith('unsuitable_image_type:'))return '画面类型不适合训练';if(value?.startsWith('filtered_tag:'))return '命中筛除标签';if(value?.startsWith('screenshot_tag:'))return '截图图片';return value||'等待处理';
 }
 function renderJobs(){
   $('#page-count').textContent=state.jobs.length;$('#result-caption').textContent='按任务查看导入进度 · 低质量及重复图片自动跳过';$('#content').className='jobs-list';$('#pagination').innerHTML='';
   $('#content').innerHTML=state.jobs.map(job=>{
-    const progress=Math.min(100,Math.round(job.processed/Math.max(1,job.total)*100));return `<article class="job-card" data-job="${job.id}"><div class="job-top"><div><div class="job-title">${number(job.total)} 张图片 · ${date(job.created)}</div><div class="job-source">${esc(job.source)}</div></div><span class="job-badge ${job.status}">${jobStatus[job.status]||job.status}</span></div><div class="job-progress ${job.status}"><span style="width:${progress}%"></span></div><div class="job-phase">${esc(job.phase)}${job.error?' · '+esc(reason(job.error)):''}</div><div class="job-counts"><span>进度<b>${job.processed}/${job.total}</b></span><span>收录<b>${job.saved}</b></span><span>筛除<b>${job.rejected}</b></span><span>去重<b>${job.duplicate}</b></span><span>异常<b>${job.errors}</b></span></div><button class="job-detail-toggle" data-job-details="${job.id}">查看处理明细 ↓</button>${['queued','running'].includes(job.status)?`<button class="button subtle danger-text" style="float:right" data-job-cancel="${job.id}">取消任务</button>`:''}<div class="job-items hidden" id="job-items-${job.id}"></div></article>`;
+    const progress=Math.min(100,Math.round(job.processed/Math.max(1,job.total)*100));return `<article class="job-card" data-job="${job.id}"><div class="job-top"><div><div class="job-title">${number(job.total)} 张图片 · ${date(job.created)}</div><div class="job-source">${esc(job.source)}</div></div><span class="job-badge ${job.status}">${jobStatus[job.status]||job.status}</span></div><div class="job-progress ${job.status}"><span style="width:${progress}%"></span></div><div class="job-phase">${esc(job.phase)}${job.error?' · '+esc(reason(job.error)):''}</div><div class="job-counts"><span>进度<b>${job.processed}/${job.total}</b></span><span>收录<b>${job.saved}</b></span><span>筛除<b>${job.rejected}</b></span><span>去重<b>${job.duplicate}</b></span><span>异常<b>${job.errors}</b></span></div><button class="job-detail-toggle" data-job-details="${job.id}">查看处理明细 ↓</button>${['queued','running'].includes(job.status)?`<button class="button subtle danger-text" style="float:right" data-job-cancel="${job.id}">取消任务</button>`:''}${job.source==='手机上传'&&!['queued','running'].includes(job.status)?`<button class="button subtle" data-job-retry="${job.id}">重试未完成项</button>`:''}<div class="job-items hidden" id="job-items-${job.id}"></div></article>`;
   }).join('')||empty('还没有导入任务','选择一个本地文件夹，开始扩充你的图库。','upload');
   document.querySelectorAll('[data-job-cancel]').forEach(button=>button.onclick=async()=>{await api('/api/jobs/'+button.dataset.jobCancel+'/cancel',{});toast('正在完成当前图片，随后停止');loadContent(true);});
+  document.querySelectorAll('[data-job-retry]').forEach(button=>button.onclick=async()=>{try{await api('/api/jobs/'+button.dataset.jobRetry+'/retry',{});toast('已重新加入导入队列');loadContent(true);}catch(error){toast(error.message);}});
   document.querySelectorAll('[data-job-details]').forEach(button=>button.onclick=async()=>{
     const pane=$('#job-items-'+button.dataset.jobDetails);if(!pane.classList.contains('hidden')){pane.classList.add('hidden');return;}
     try{const job=await api('/api/jobs/'+button.dataset.jobDetails);pane.innerHTML=job.items.map(item=>`<div class="job-item"><span title="${esc(item.name)}">${esc(item.name)}</span><span>${esc(reason(item.reason))}</span></div>`).join('')||'<span class="muted">等待处理第一张图片</span>';pane.classList.remove('hidden');}catch(error){toast(error.message);}

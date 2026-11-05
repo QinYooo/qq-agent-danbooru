@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>手机上传到图库</title><link rel="stylesheet" href="/phone.css"><script defer src="/phone.js"></script></head>
+<body><main><h1>手机上传到图库</h1><p id="connection" role="status">正在连接电脑…</p>
+<form id="pair"><label>连接码 <input id="token" autocomplete="off" type="password" required></label><button>连接</button></form>
+<section id="controls" hidden><div class="choices"><label>相册多选<input id="photos" type="file" multiple accept="image/jpeg,image/png,image/webp,image/bmp,image/gif"></label><label>文件多选<input id="files" type="file" multiple></label><label id="folder-label">选择文件夹<input id="folder" type="file" multiple webkitdirectory></label></div>
+<p>可分批追加超过 100 张，每张最多 25MiB。系统支持时可长按、滑动多选；文件夹和选择数量受手机浏览器限制。</p>
+<p>每张传完即开始本地标注与筛选。收录后移动到图库；筛除、相似图和异常原件暂存于电脑，供核对。不会删除手机原件。</p>
+<button id="start">开始上传</button> <button id="retry">重试未完成上传</button><p id="summary" role="status">尚未选择图片</p></section>
+<p>请保持网页前台，暂时不要锁屏。刷新网页会丢失未完成队列；已上传图片仍保留在电脑。连接仅限可信局域网，1 小时后关闭。</p>
+<ol id="queue"></ol></main></body></html>

@@ -57,6 +57,13 @@ def main():
     class LocalArchive(worker.Archive):
         current=None
 
+        def write_original(self,path,data):
+            if self.current.get('mobile'):
+                from mobile_upload import link_original
+                link_original(self.current['path'],path,data,Path(config['root'])/'_state'/'manager'/'incoming'/'phone')
+            else:
+                super().write_original(path,data)
+
         def record(self,result,meta=None):
             if result.get('status')=='saved':
                 row=self.db.execute('SELECT metadata FROM images WHERE sha=?',(result['sha256'],)).fetchone()
